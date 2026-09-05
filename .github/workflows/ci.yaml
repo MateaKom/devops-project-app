@@ -1,0 +1,49 @@
+﻿name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -t devops-project-app-api:latest ./api
+
+      - name: Build Frontend image
+        run: docker build -t devops-project-app-frontend:latest ./frontend
+
+      - name: Build Worker image
+        run: docker build -t devops-project-app-worker:latest ./worker
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get install -y wget apt-transport-https gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Scan API image
+        run: trivy image --exit-code 0 --severity HIGH,CRITICAL devops-project-app-api:latest
+
+      - name: Scan Frontend image
+        run: trivy image --exit-code 0 --severity HIGH,CRITICAL devops-project-app-frontend:latest
+
+      - name: Scan Worker image
+        run: trivy image --exit-code 0 --severity HIGH,CRITICAL devops-project-app-worker:latest
+
+      - name: Validate Kubernetes manifests
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          ./kubectl apply --dry-run=client -f k8s/app-configmap.yaml
+          ./kubectl apply --dry-run=client -f k8s/postgres/deployment.yaml
+          ./kubectl apply --dry-run=client -f k8s/redis/deployment.yaml

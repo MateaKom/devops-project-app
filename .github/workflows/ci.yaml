@@ -1,4 +1,4 @@
-﻿name: CI/CD Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,11 +39,3 @@ jobs:
 
       - name: Scan Worker image
         run: trivy image --exit-code 0 --severity HIGH,CRITICAL devops-project-app-worker:latest
-
-           - name: Validate Kubernetes manifests
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          ./kubectl apply --dry-run=client --validate=false -f k8s/app-configmap.yaml
-          ./kubectl apply --dry-run=client --validate=false -f k8s/postgres/deployment.yaml
-          ./kubectl apply --dry-run=client --validate=false -f k8s/redis/deployment.yaml

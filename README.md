@@ -1,48 +1,77 @@
-# Secure Event Ticketing Platform (Sample DevSecOps Project)
+﻿# Secure Event Ticketing Platform
 
-Ovaj repozitorij je referentni uzorak aplikacije za kolegij **Uvod u DevOps - DevSecOps**.
-Prikazuje cijeli tok: lokalni razvoj kroz Compose i produkcijski deployment kroz Kubernetes manifeste.
+## Opis projekta
+Višeslojna aplikacija za prodaju ulaznica koja demonstrira DevOps/DevSecOps prakse.
 
-## Arhitektura
+## Servisi
+- **Frontend** - Web sučelje (port 3000)
+- **API** - REST API servis (port 8080)
+- **Worker** - Background worker za obradu narudžbi
+- **PostgreSQL** - Baza podataka
+- **Redis** - Queue i cache
 
-- `frontend` - web UI za pregled evenata i kupnju karata
-- `api` - REST API za evente, narudzbe i health provjere
-- `worker` - pozadinska obrada queue poruka
-- `postgres` - trajna pohrana narudzbi
-- `redis` - queue/cache sloj
+## 1. dio - Lokalni razvoj (Docker Compose)
 
-### Brza validacija funkcionalnosti
+### Pokretanje
+`ash
+docker-compose up --build
+`
 
-1. Health API:
-   ```bash
-   curl http://localhost:8080/healthz
-   curl http://localhost:8080/readyz
-   ```
-2. Dohvati evente:
-   ```bash
-   curl http://localhost:8080/events
-   ```
-3. Posalji narudzbu:
-   ```bash
-   curl -X POST http://localhost:8080/tickets/purchase \
-     -H "Content-Type: application/json" \
-     -d '{"eventId":"evt-1001","customerEmail":"student@example.com","quantity":2}'
-   ```
-4. Provjeri obradene narudzbe:
-   ```bash
-   curl http://localhost:8080/tickets/orders
-   ```
-5. UI:
-   - Otvori `http://localhost:3000`
+### Zaustavljanje
+`ash
+docker-compose down
+`
 
-## Sigurnosni elementi
+### Provjera zdravlja
+- Frontend: http://localhost:3000
+- API health: http://localhost:8080/healthz
+- Narudžbe: http://localhost:8080/tickets/orders
 
-- Multi-stage Docker build i non-root runtime korisnik
-- Secret + ConfigMap odvojena konfiguracija
-- Liveness/Readiness probe
-- Resource requests/limits
-- ServiceAccount + RBAC
-- NetworkPolicy segmentacija
-- Trivy skeniranje slika u CI pipelineu
+## 2. dio - Produkcijski deployment (Kubernetes)
 
-Detalji skeniranja: `docs/security/image-scan-report.md`
+### Preduvjeti
+- Docker Desktop s omogućenim Kubernetesom
+- kubectl
+
+### Build slika
+`ash
+docker build -t devops-project-app-api:latest ./api
+docker build -t devops-project-app-frontend:latest ./frontend
+docker build -t devops-project-app-worker:latest ./worker
+`
+
+### Deploy
+`ash
+kubectl apply -f k8s/postgres/secret.yaml
+kubectl apply -f k8s/app-configmap.yaml
+kubectl apply -f k8s/rbac.yaml
+kubectl apply -f k8s/postgres/deployment.yaml
+kubectl apply -f k8s/redis/deployment.yaml
+kubectl apply -f k8s/api/deployment.yaml
+kubectl apply -f k8s/worker/deployment.yaml
+kubectl apply -f k8s/frontend/deployment.yaml
+`
+
+### Provjera statusa
+`ash
+kubectl get pods
+`
+
+### Pristup aplikaciji
+`ash
+kubectl port-forward service/frontend 3000:3000
+kubectl port-forward service/api 8080:8080
+`
+
+## Sigurnosno skeniranje
+Skeniranje slika vrši se pomoću Trivy alata:
+`ash
+trivy image devops-project-app-api:latest
+trivy image devops-project-app-frontend:latest
+trivy image devops-project-app-worker:latest
+`
+
+Rezultati su spremljeni u:
+- trivy-report-api.json
+- trivy-report-frontend.json
+- trivy-report-worker.json
